@@ -1,0 +1,15 @@
+rg_name="terraform_rgs"
+location="uksouth"
+vnet_name="terraform_vnets"
+vnet_space=["10.0.0.0/16"]
+subnet_name="terraform_subnets"
+subnet_space=["10.0.2.0/24"]
+nic_name="terraform_nics"
+ip_name="terraform_ips"
+pip_name="terraform_pips"
+disk_name="terraform_disk1s"
+disk_size="64"
+vm_name="terraform_vms"
+vm_size="Standard_B1s"
+vm_user="terraform"
+vm_password="Terraform1234!"
