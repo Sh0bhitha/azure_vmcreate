@@ -1,92 +1,72 @@
-resource "azurerm_resource_group" "rg" {
-  name     = var.rg_name
-  location = var.location
+resource "azurerm_resource_group" "example" {
+  name     = "example-resources"
+  location = "West Europe"
 }
 
-resource "azurerm_virtual_network" "vnet" {
-  name                = var.vnet_name
-  address_space       = var.vnet_space
-  location            = var.location
-  resource_group_name = var.rg_name
-  depends_on          = [azurerm_resource_group.rg]
+resource "azurerm_virtual_network" "example" {
+  name                = "example-network"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
 }
 
-resource "azurerm_subnet" "subnet" {
-  name                 = var.subnet_name
-  resource_group_name  = var.rg_name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = var.subnet_space
-  depends_on          = [azurerm_resource_group.rg]
+resource "azurerm_subnet" "example" {
+  name                 = "internal"
+  resource_group_name  = azurerm_resource_group.example.name
+  virtual_network_name = azurerm_virtual_network.example.name
+  address_prefixes     = ["10.0.2.0/24"]
 }
-resource "azurerm_network_interface" "nic" {
-  name                = var.nic_name
-  location            = var.location
-  resource_group_name = var.rg_name
-  depends_on          = [azurerm_resource_group.rg, azurerm_subnet.subnet, azurerm_virtual_network.vnet ]
+
+resource "azurerm_network_interface" "example" {
+  name                = "example-nic"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+
   ip_configuration {
-    name                          = var.ip_name
-    subnet_id                     = azurerm_subnet.subnet.id
-    private_ip_address_allocation = "Static"
-    private_ip_address            = "10.0.2.5"
-    public_ip_address_id          = azurerm_public_ip.pip.id
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.example.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.example.id
   }
 }
-resource "azurerm_managed_disk" "disk" {
-   name     = var.disk_name
-   location              = var.location
-   resource_group_name   = var.rg_name
-   storage_account_type  = "Standard_LRS"
-   create_option         = "Empty"
-   disk_size_gb          = var.disk_size
-   depends_on          = [azurerm_resource_group.rg]
- }
-resource "azurerm_public_ip" "pip" {
-   name                         = var.pip_name
-   location                             = var.location
-   resource_group_name                  = var.rg_name
-   allocation_method            = "Static"
-   depends_on          = [azurerm_resource_group.rg]
- }
+  output "public_ip" {
+      value = azurerm_public_ip.example.id
+}
+resource "azurerm_linux_virtual_machine" "example" {
+  name                = "vm01"
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  size                = "Standard_F2"
+  admin_username      = "Shobitha"
+  admin_password      = "Shobitha@12345"
+  disable_password_authentication = false
+  network_interface_ids = [
+    azurerm_network_interface.example.id,
+  ]
 
 
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
 
-resource "azurerm_virtual_machine" "main" {
-  name                  = var.vm_name
-  location              = var.location
-  resource_group_name   = var.rg_name
-  network_interface_ids = [azurerm_network_interface.nic.id]
-  vm_size               = var.vm_size
-depends_on          = [azurerm_resource_group.rg]
-  delete_os_disk_on_termination = true
-
-  delete_data_disks_on_termination = true
-
-  storage_image_reference {
+  source_image_reference {
     publisher = "Canonical"
     offer     = "UbuntuServer"
     sku       = "16.04-LTS"
     version   = "latest"
   }
-  storage_os_disk {
-    name              = "myosdisk1"
-    caching           = "ReadWrite"
-    create_option     = "FromImage"
-    managed_disk_type = "Standard_LRS"
-  }
-  storage_data_disk {
-         name     = var.disk_name
-     managed_disk_id = azurerm_managed_disk.disk.id
-     create_option   = "Attach"
-     lun             = 1
-     disk_size_gb    = var.disk_size
-   }
-  os_profile {
-    computer_name  = "terraform"
-    admin_username = var.vm_user
-    admin_password = var.vm_password
-  }
-  os_profile_linux_config {
-    disable_password_authentication = false
-  }
-  
+}
+resource "azurerm_container_registry" "acr" {
+  name     = "myrepovarun"
+  resource_group_name      = azurerm_resource_group.example.name
+  location                 = azurerm_resource_group.example.location
+  sku                      = "Basic"
+  admin_enabled            = true
+}
+
+output "admin_password" {
+  value       = azurerm_container_registry.acr.admin_password
+  description = "The object ID of the user"
+sensitive = true
 }
